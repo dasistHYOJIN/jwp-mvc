@@ -14,6 +14,14 @@ public class HandlerKey {
         this.requestMethods = requestMethods;
     }
 
+    boolean matchesUrl(final String url) {
+        return this.url.equals(url);
+    }
+
+    boolean containsMethod(final RequestMethod requestMethod) {
+        return Arrays.stream(requestMethods).anyMatch(requestMethod1 -> requestMethod1 == requestMethod);
+    }
+
     @Override
     public String toString() {
         return "HandlerKey [url=" + url + ", requestMethods=" + requestMethods + "]";

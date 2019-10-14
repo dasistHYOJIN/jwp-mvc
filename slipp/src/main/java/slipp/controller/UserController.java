@@ -17,7 +17,7 @@ import javax.servlet.http.HttpServletResponse;
 public class UserController {
     private static final Logger log = LoggerFactory.getLogger(UserController.class);
 
-    @RequestMapping(value = "/users/form", method = RequestMethod.GET)
+    @RequestMapping(value = "/users/form")
     public ModelAndView showUserForm(HttpServletRequest req, HttpServletResponse resp) {
         return new ModelAndView("/user/form.jsp");
     }
@@ -46,7 +46,7 @@ public class UserController {
         return new ModelAndView("redirect:/");
     }
 
-    @RequestMapping(value = "/users", method = RequestMethod.GET)
+    @RequestMapping(value = "/users")
     public ModelAndView showUsers(HttpServletRequest req, HttpServletResponse resp) {
         if (!UserSessionUtils.isLogined(req.getSession())) {
             return new ModelAndView("redirect:/users/loginForm");
@@ -56,7 +56,7 @@ public class UserController {
         return new ModelAndView("/user/list.jsp");
     }
 
-    @RequestMapping(value = "/users/profile", method = RequestMethod.GET)
+    @RequestMapping(value = "/users/profile")
     public ModelAndView showProfile(HttpServletRequest req, HttpServletResponse resp) {
         String userId = req.getParameter("userId");
         User user = DataBase.findUserById(userId);

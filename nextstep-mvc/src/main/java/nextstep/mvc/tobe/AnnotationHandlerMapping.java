@@ -8,10 +8,11 @@ import nextstep.web.annotation.RequestMapping;
 import nextstep.web.annotation.RequestMethod;
 import org.reflections.ReflectionUtils;
 
+import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import java.lang.reflect.Method;
 import java.util.Map;
-import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 import static org.reflections.ReflectionUtils.getAllMethods;
@@ -42,18 +43,23 @@ public class AnnotationHandlerMapping implements HandlerMapping {
 
     @Override
     public boolean supports(HttpServletRequest request) {
-        String url = request.getRequestURI();
-        RequestMethod[] requestMethod = {RequestMethod.valueOf(request.getMethod())};
-
-        return Objects.nonNull(handlerExecutions.get(new HandlerKey(url, requestMethod)));
+        return getMaybeHandler(request).isPresent();
     }
 
     @Override
     public HandlerExecution getHandler(HttpServletRequest request) {
-        String url = request.getRequestURI();
-        RequestMethod[] requestMethod = {RequestMethod.valueOf(request.getMethod())};
+        return getMaybeHandler(request).orElseThrow();
+    }
 
-        return handlerExecutions.get(new HandlerKey(url, requestMethod));
+    private Optional<HandlerExecution> getMaybeHandler(HttpServletRequest request) {
+        String url = request.getRequestURI();
+        RequestMethod requestMethod = RequestMethod.valueOf(request.getMethod());
+
+        return handlerExecutions.entrySet().stream()
+                .filter(entry -> entry.getKey().matchesUrl(url))
+                .filter(entry -> entry.getKey().containsMethod(requestMethod))
+                .map(Map.Entry::getValue)
+                .findFirst();
     }
 
     private HandlerKey createHandlerKey(RequestMapping rm) {
