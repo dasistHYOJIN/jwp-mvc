@@ -1,12 +1,9 @@
 package nextstep.mvc;
 
-import nextstep.mvc.exception.ExceptionFunction;
 import nextstep.mvc.tobe.HandlerExecution;
 import nextstep.mvc.tobe.adapter.HandlerAdapter;
-import nextstep.mvc.tobe.resolver.ViewResolver;
+import nextstep.mvc.tobe.resolver.ViewResolverManager;
 import nextstep.mvc.tobe.view.ModelAndView;
-import nextstep.mvc.tobe.view.View;
-import org.reflections.Reflections;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -16,33 +13,25 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.util.List;
-import java.util.Objects;
-import java.util.Set;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 @WebServlet(name = "dispatcher", urlPatterns = "/", loadOnStartup = 1)
 public class DispatcherServlet extends HttpServlet {
     private static final long serialVersionUID = 1L;
     private static final Logger logger = LoggerFactory.getLogger(DispatcherServlet.class);
 
-    private static final String VIEW_RESOLVER_BASE_PACKAGE = "nextstep.mvc.tobe.resolver";
-
     private final List<HandlerMapping> handlerMappings;
     private final HandlerAdapter handlerAdapter;
-    private final List<ViewResolver> viewResolvers;
+    private final ViewResolverManager viewResolverManager;
 
     public DispatcherServlet(List<HandlerMapping> handlerMappings, HandlerAdapter handlerAdapter) throws ServletException {
         this.handlerMappings = handlerMappings;
         this.handlerAdapter = handlerAdapter;
-        this.viewResolvers = initViewResolvers();
+        this.viewResolverManager = ViewResolverManager.getInstance();
     }
 
     @Override
     public void init() {
-        for (HandlerMapping handlerMapping : handlerMappings) {
-            handlerMapping.initialize();
-        }
+        handlerMappings.forEach(HandlerMapping::initialize);
     }
 
     @Override
@@ -52,17 +41,8 @@ public class DispatcherServlet extends HttpServlet {
 
         HandlerExecution handler = getHandler(req);
         ModelAndView mav = handlerAdapter.handle(req, resp, handler);
-        resolveView(mav);
+        this.viewResolverManager.resolveView(mav);
         applyView(req, resp, mav);
-    }
-
-    private List<ViewResolver> initViewResolvers() {
-        Reflections reflections = new Reflections(VIEW_RESOLVER_BASE_PACKAGE);
-        Set<Class<? extends ViewResolver>> classes = reflections.getSubTypesOf(ViewResolver.class);
-
-        return classes.stream()
-                .map(wrapper(aClass -> aClass.getDeclaredConstructor().newInstance()))
-                .collect(Collectors.toList());
     }
 
     private HandlerExecution getHandler(HttpServletRequest req) throws ServletException {
@@ -73,36 +53,12 @@ public class DispatcherServlet extends HttpServlet {
                 .getHandler(req);
     }
 
-    private void resolveView(ModelAndView mav) throws ServletException {
-        if (Objects.nonNull(mav.getView())) {
-            return;
-        }
-
-        View view = this.viewResolvers.stream()
-                .filter(viewResolver -> viewResolver.supports(mav))
-                .findFirst()
-                .orElseThrow(ServletException::new)
-                .resolveViewName(mav.getViewName());
-        mav.setView(view);
-    }
-
     private void applyView(HttpServletRequest req, HttpServletResponse resp, ModelAndView mav) throws ServletException {
         try {
             mav.getView().render(mav.getModel(), req, resp);
         } catch (Exception e) {
             logger.error("Exception : {}", e.getMessage());
-            e.printStackTrace();
             throw new ServletException(e.getMessage());
         }
-    }
-
-    private <T, R, E extends Exception> Function<T, R> wrapper(ExceptionFunction<T, R, E> f) {
-        return t -> {
-            try {
-                return f.apply(t);
-            } catch (Exception e) {
-                throw new RuntimeException(e.getMessage());
-            }
-        };
     }
 }
